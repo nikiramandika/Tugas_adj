@@ -78,16 +78,75 @@ def create_topology():
     host_c1.cmd('ip route add default via 10.0.3.1')
     host_c2.cmd('ip route add default via 10.0.3.1')
 
-    info("*** Testing connectivity within departments\n")
-    # Test intra-department connectivity (should work)
-    print("Testing connectivity within Department A:")
-    print(net.ping([host_a1, host_a2]))
+    info("*** Testing connectivity with visual arrows\n")
 
-    print("Testing connectivity within Department B:")
-    print(net.ping([host_b1, host_b2]))
+    def test_connection_with_arrow(src_host, dst_host, src_name, dst_name):
+        """Test connection and display result with arrow"""
+        result = net.ping([src_host, dst_host])
+        success_rate = 100 - float(result.split('%')[0])
 
-    print("Testing connectivity within Department C:")
-    print(net.ping([host_c1, host_c2]))
+        if success_rate == 0:
+            arrow = "❌ X"
+            status = "BLOCKED"
+        elif success_rate == 100:
+            arrow = "✅ →"
+            status = "SUCCESS"
+        else:
+            arrow = f"⚠️  →"
+            status = f"PARTIAL ({success_rate:.0f}%)"
+
+        print(f"{src_name:<8} {arrow:<8} {dst_name:<8} : {status}")
+        return success_rate > 0
+
+    print("\n" + "="*60)
+    print("           DEPARTMENT CONNECTIVITY TEST RESULTS")
+    print("="*60)
+
+    print("\n📌 INTERNAL DEPARTMENT CONNECTIONS:")
+    print("-" * 40)
+
+    # Internal connections (should work)
+    test_connection_with_arrow(host_a1, host_a2, "h1(A)", "h2(A)")
+    test_connection_with_arrow(host_a2, host_a1, "h2(A)", "h1(A)")
+    test_connection_with_arrow(host_b1, host_b2, "h3(B)", "h4(B)")
+    test_connection_with_arrow(host_b2, host_b1, "h4(B)", "h3(B)")
+    test_connection_with_arrow(host_c1, host_c2, "h5(C)", "h6(C)")
+    test_connection_with_arrow(host_c2, host_c1, "h6(C)", "h5(C)")
+
+    print("\n📌 INTER-DEPARTMENT CONNECTIONS:")
+    print("-" * 40)
+
+    print("Dept A → Dept B (SHOULD WORK):")
+    test_connection_with_arrow(host_a1, host_b1, "h1(A)", "h3(B)")
+    test_connection_with_arrow(host_a2, host_b2, "h2(A)", "h4(B)")
+
+    print("Dept B → Dept A (SHOULD WORK):")
+    test_connection_with_arrow(host_b1, host_a1, "h3(B)", "h1(A)")
+    test_connection_with_arrow(host_b2, host_a2, "h4(B)", "h2(A)")
+
+    print("Dept A → Dept C (SHOULD BE BLOCKED):")
+    test_connection_with_arrow(host_a1, host_c1, "h1(A)", "h5(C)")
+    test_connection_with_arrow(host_a2, host_c2, "h2(A)", "h6(C)")
+
+    print("Dept C → Dept A (SHOULD BE BLOCKED):")
+    test_connection_with_arrow(host_c1, host_a1, "h5(C)", "h1(A)")
+    test_connection_with_arrow(host_c2, host_a2, "h6(C)", "h2(A)")
+
+    print("Dept B → Dept C (SHOULD WORK):")
+    test_connection_with_arrow(host_b1, host_c1, "h3(B)", "h5(C)")
+    test_connection_with_arrow(host_b2, host_c2, "h4(B)", "h6(C)")
+
+    print("Dept C → Dept B (SHOULD WORK):")
+    test_connection_with_arrow(host_c1, host_b1, "h5(C)", "h3(B)")
+    test_connection_with_arrow(host_c2, host_b2, "h6(C)", "h4(B)")
+
+    print("\n" + "="*60)
+    print("         EXPECTED RULES SUMMARY")
+    print("="*60)
+    print("✅ Dept A ↔ Dept B : ALLOWED")
+    print("❌ Dept A ↔ Dept C : BLOCKED")
+    print("✅ Dept B ↔ Dept C : ALLOWED")
+    print("="*60)
 
     info("*** Network Information:\n")
     info("Department A (Switch s1):\n")
