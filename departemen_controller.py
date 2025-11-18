@@ -12,7 +12,7 @@ class DeptFirewall(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
-        super(ThreeDeptFirewall, self).__init__(*args, **kwargs)
+        super(DeptFirewall, self).__init__(*args, **kwargs)
         # Dictionary untuk MAC Address Table: {dpid: {mac: port}}
         self.mac_to_port = {}
 
