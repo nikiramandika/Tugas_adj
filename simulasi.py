@@ -7,14 +7,14 @@ from mininet.cli import CLI
 from mininet.log import setLogLevel
 import time
 
-# --- BAGIAN 1: DEFINISI TOPOLOGI (Sama seperti sebelumnya) ---
+# --- 1. DEFINISI TOPOLOGI ---
 class DeptTopo(Topo):
     def build(self):
         s1 = self.addSwitch('s1')
         s2 = self.addSwitch('s2')
         s3 = self.addSwitch('s3')
 
-        # Menggunakan /16 agar dianggap satu network besar
+        # Host dengan Subnet /16
         h1 = self.addHost('h1', ip='10.0.1.1/16')
         h2 = self.addHost('h2', ip='10.0.1.2/16')
         h3 = self.addHost('h3', ip='10.0.2.1/16')
@@ -32,56 +32,53 @@ class DeptTopo(Topo):
         self.addLink(s1, s2)
         self.addLink(s2, s3)
 
-# --- BAGIAN 2: FUNGSI SIMULASI CEK KONEKSI ---
+# --- 2. LOGIKA SIMULASI OTOMATIS ---
 def run_simulation():
-    # Inisialisasi Mininet
     topo = DeptTopo()
-    # Menghubungkan ke Remote Controller (Ryu yang sedang jalan)
+    # Koneksi ke Controller
     net = Mininet(topo=topo, 
                   controller=RemoteController(name='c0', ip='127.0.0.1'), 
                   switch=OVSKernelSwitch)
     
-    print("\n*** Memulai Jaringan...")
+    print("\n*** Memulai Jaringan Mininet...")
     net.start()
 
-    # Tunggu sebentar agar controller dan switch 'kenalan' (handshake)
     print("*** Menunggu 3 detik agar switch stabil...")
     time.sleep(3)
 
     hosts = net.hosts
-    print("\n" + "="*40)
-    print("   MULAI SIMULASI CEK KONEKSI OTOMATIS")
-    print("="*40)
+    print("\n" + "="*50)
+    print("   MULAI PENGECEKAN KONEKSI (PING OTOMATIS)")
+    print("="*50)
 
-    # Loop untuk setiap host mengecek host lain
+    # Loop Cek Koneksi
     for src in hosts:
         for dst in hosts:
-            if src == dst:
-                continue # Jangan ping diri sendiri
+            if src == dst: 
+                continue 
 
-            # Kirim 1 paket ping, timeout 0.5 detik (biar cepat kalau gagal)
-            # Menggunakan -W 1 agar tidak menunggu lama jika diblokir firewall
+            # Perintah Ping (timeout 0.5 detik)
+            # -c 1 : kirim 1 paket
+            # -W 1 : tunggu max 1 detik
             result = src.cmd('ping -c 1 -W 1 %s' % dst.IP())
             
-            # Cek apakah ping berhasil (mencari kata "1 received")
             status = ""
             if '1 received' in result:
-                status = "✅ SUKSES (Terhubung)"
+                status = "✅ SUKSES"
             else:
-                status = "❌ GAGAL  (Diblokir/Putus)"
+                status = "❌ DIBLOKIR"
 
-            # Tampilkan Animasi Panah Teks
+            # Cetak Hasil dengan Animasi
             print(f"[ {src.name} ] --(ping)--> [ {dst.name} ] : {status}")
             
-            # Jeda sedikit biar terlihat efek animasinya
-            time.sleep(0.2) 
+            # Jeda 0.2 detik biar enak dilihat
+            time.sleep(0.2)
 
-        print("-" * 40) # Garis pemisah per host
+        print("-" * 50)
 
-    print("\n*** Simulasi Selesai.")
-    print("*** Masuk ke CLI Mininet (ketik 'exit' untuk keluar)")
+    print("\n*** Simulasi Selesai. Masuk ke mode Manual CLI.")
     
-    # Masuk ke mode CLI supaya kamu bisa cek manual kalau mau
+    # --- 3. MASUK MODE CLI (Agar tidak langsung keluar) ---
     CLI(net)
     
     print("*** Mematikan Jaringan...")
