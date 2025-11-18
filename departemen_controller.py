@@ -15,6 +15,7 @@ class DeptFirewall(app_manager.RyuApp):
         super(DeptFirewall, self).__init__(*args, **kwargs)
         # Dictionary untuk MAC Address Table: {dpid: {mac: port}}
         self.mac_to_port = {}
+        self.logger.info("DeptFirewall Controller Started")
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -22,11 +23,16 @@ class DeptFirewall(app_manager.RyuApp):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
+        self.logger.info(f"Switch {datapath.id} connected")
+
         # Install table-miss flow entry (default flood ke controller)
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
         self.add_flow(datapath, 0, match, actions)
+
+        # Install drop rules untuk Dept A -> Dept C dan Dept C -> Dept A
+        self.install_firewall_rules(datapath)
 
     def add_flow(self, datapath, priority, match, actions, buffer_id=None):
         ofproto = datapath.ofproto
@@ -42,6 +48,31 @@ class DeptFirewall(app_manager.RyuApp):
             mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                     match=match, instructions=inst)
         datapath.send_msg(mod)
+
+    def install_firewall_rules(self, datapath):
+        """Install flow rules untuk blocking traffic antar departemen"""
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+
+        # Rule 1: Block Dept A (10.0.1.0/24) -> Dept C (10.0.3.0/24)
+        match = parser.OFPMatch(
+            eth_type=0x0800,  # IPv4
+            ipv4_src=('10.0.1.0', '255.255.255.0'),  # Dept A subnet
+            ipv4_dst=('10.0.3.0', '255.255.255.0')   # Dept C subnet
+        )
+        # Drop action (kosong = drop)
+        self.add_flow(datapath, 100, match, [])
+        self.logger.info("Installed rule: Block Dept A -> Dept C")
+
+        # Rule 2: Block Dept C (10.0.3.0/24) -> Dept A (10.0.1.0/24)
+        match = parser.OFPMatch(
+            eth_type=0x0800,  # IPv4
+            ipv4_src=('10.0.3.0', '255.255.255.0'),  # Dept C subnet
+            ipv4_dst=('10.0.1.0', '255.255.255.0')   # Dept A subnet
+        )
+        # Drop action (kosong = drop)
+        self.add_flow(datapath, 100, match, [])
+        self.logger.info("Installed rule: Block Dept C -> Dept A")
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
