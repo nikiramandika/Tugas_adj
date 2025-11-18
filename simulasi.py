@@ -7,20 +7,21 @@ from mininet.cli import CLI
 from mininet.log import setLogLevel
 import time
 
-# --- BAGIAN 1: DEFINISI TOPOLOGI (Sama seperti sebelumnya) ---
+# --- BAGIAN 1: DEFINISI TOPOLOGI ---
 class DeptTopo(Topo):
     def build(self):
         s1 = self.addSwitch('s1')
         s2 = self.addSwitch('s2')
         s3 = self.addSwitch('s3')
 
-        # Menggunakan /24 
-        h1 = self.addHost('h1', ip='10.0.1.1/24')
-        h2 = self.addHost('h2', ip='10.0.1.2/24')
-        h3 = self.addHost('h3', ip='10.0.2.1/24')
-        h4 = self.addHost('h4', ip='10.0.2.2/24')
-        h5 = self.addHost('h5', ip='10.0.3.1/24')
-        h6 = self.addHost('h6', ip='10.0.3.2/24')
+        # PERBAIKAN DISINI: WAJIB MENGGUNAKAN /16
+        # Jika pakai /24, host beda departemen tidak bisa ping (Unreachable)
+        h1 = self.addHost('h1', ip='10.0.1.1/16')
+        h2 = self.addHost('h2', ip='10.0.1.2/16')
+        h3 = self.addHost('h3', ip='10.0.2.1/16')
+        h4 = self.addHost('h4', ip='10.0.2.2/16')
+        h5 = self.addHost('h5', ip='10.0.3.1/16')
+        h6 = self.addHost('h6', ip='10.0.3.2/16')
 
         self.addLink(h1, s1)
         self.addLink(h2, s1)
@@ -74,7 +75,7 @@ def run_simulation():
             print(f"[ {src.name} ] --(ping)--> [ {dst.name} ] : {status}")
             
             # Jeda sedikit biar terlihat efek animasinya
-            time.sleep(0.2) 
+            time.sleep(0.1) 
 
         print("-" * 40) # Garis pemisah per host
 

@@ -21,7 +21,7 @@ class DeptFirewall(app_manager.RyuApp):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
-        # Install table-miss flow entry (default flood)
+        # Install table-miss flow entry
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
@@ -63,14 +63,13 @@ class DeptFirewall(app_manager.RyuApp):
         self.mac_to_port.setdefault(dpid, {})
         self.mac_to_port[dpid][src] = in_port
 
-        # --- LOGIKA FIREWALL (Aturan Dept) ---
+        # --- LOGIKA FIREWALL ---
         ip_pkt = pkt.get_protocol(ipv4.ipv4)
-        
         if ip_pkt:
             src_ip = ip_pkt.src
             dst_ip = ip_pkt.dst
 
-            # Rule: Dept A <-> Dept C = BLOCK
+            # Dept A (10.0.1.x) <-> Dept C (10.0.3.x) = BLOCK
             if src_ip.startswith("10.0.1") and dst_ip.startswith("10.0.3"):
                 self.logger.info(f"BLOCKED: {src_ip} -> {dst_ip}")
                 return 
@@ -78,10 +77,8 @@ class DeptFirewall(app_manager.RyuApp):
             if src_ip.startswith("10.0.3") and dst_ip.startswith("10.0.1"):
                 self.logger.info(f"BLOCKED: {src_ip} -> {dst_ip}")
                 return 
-            
-        # --- AKHIR LOGIKA FIREWALL ---
+        # --- END FIREWALL ---
 
-        # Normal Switching Logic
         if dst in self.mac_to_port[dpid]:
             out_port = self.mac_to_port[dpid][dst]
         else:
@@ -89,11 +86,7 @@ class DeptFirewall(app_manager.RyuApp):
 
         actions = [parser.OFPActionOutput(out_port)]
 
-        # ==============================================================
-        # PERUBAHAN PENTING:
-        # Bagian 'add_flow' (if out_port != FLOOD) SUDAH DIHAPUS DISINI.
-        # Controller akan menangani setiap paket satu per satu.
-        # ==============================================================
+        # PENTING: BAGIAN ADD_FLOW DIHAPUS AGAR SELALU CEK CONTROLLER
         
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
