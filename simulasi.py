@@ -6,8 +6,6 @@ from mininet.node import RemoteController, OVSKernelSwitch
 from mininet.cli import CLI
 from mininet.log import setLogLevel
 import time
-import os
-import sys
 
 # --- 1. DEFINISI TOPOLOGI ---
 class DeptTopo(Topo):
@@ -16,7 +14,7 @@ class DeptTopo(Topo):
         s2 = self.addSwitch('s2')
         s3 = self.addSwitch('s3')
 
-        # Host dengan Subnet /24 (konsisten dengan departemen_topology.py)
+        # Host dengan Subnet /24
         h1 = self.addHost('h1', ip='10.0.1.1/24')
         h2 = self.addHost('h2', ip='10.0.1.2/24')
         h3 = self.addHost('h3', ip='10.0.2.1/24')
@@ -36,91 +34,53 @@ class DeptTopo(Topo):
 
 # --- 2. LOGIKA SIMULASI OTOMATIS ---
 def run_simulation():
-    print("\n" + "="*60)
-    print("    FIREWALL DEPARTEMEN")
-    print("="*60)
-    print("\n📋 ATURAN FIREWALL:")
-    print("✅ Dept A (10.0.1.x) -> Dept B (10.0.2.x) = DIBOLEHKAN")
-    print("✅ Dept B (10.0.2.x) -> Dept C (10.0.3.x) = DIBOLEHKAN")
-    print("❌ Dept A (10.0.1.x) -> Dept C (10.0.3.x) = DIBLOKIR")
-    print("❌ Dept C (10.0.3.x) -> Dept A (10.0.1.x) = DIBLOKIR")
-    print("\n⚠️  PASTIKAN RYU CONTROLLER SUDAH BERJALAN:")
-    print("   ryu-manager departemen_controller.py")
-    print("="*60)
-
-    input("\nTekan ENTER untuk melanjutkan...")
-
     topo = DeptTopo()
     # Koneksi ke Controller
-    net = Mininet(topo=topo,
-                  controller=RemoteController(name='c0', ip='127.0.0.1', port=6653),
-                  switch=OVSKernelSwitch,
-                  buildWait=True)
-
+    net = Mininet(topo=topo, 
+                  controller=RemoteController(name='c0', ip='127.0.0.1'), 
+                  switch=OVSKernelSwitch)
+    
     print("\n*** Memulai Jaringan Mininet...")
     net.start()
 
-    print("*** Menunggu koneksi ke controller...")
-    time.sleep(5)
+    print("*** Menunggu 3 detik agar switch stabil...")
+    time.sleep(3)
 
-    # Cek status koneksi controller
+    hosts = net.hosts
     print("\n" + "="*50)
-    print("   STATUS KONEKSI CONTROLLER")
-    print("="*50)
-    for switch in net.switches:
-        if switch.connected():
-            print(f"✅ Switch {switch.name} terhubung ke controller")
-        else:
-            print(f"❌ Switch {switch.name} TIDAK terhubung ke controller")
-
-    # Test spesifik sesuai aturan firewall
-    print("\n" + "="*50)
-    print("   TESTING FIREWALL RULES")
+    print("   MULAI PENGECEKAN KONEKSI (PING OTOMATIS)")
     print("="*50)
 
-    test_cases = [
-        ('h1', 'h3', "Dept A -> Dept B (HARUS BISA)", True),
-        ('h3', 'h5', "Dept B -> Dept C (HARUS BISA)", True),
-        ('h1', 'h5', "Dept A -> Dept C (HARUS DIBLOKIR)", False),
-        ('h5', 'h1', "Dept C -> Dept A (HARUS DIBLOKIR)", False),
-        ('h2', 'h4', "Dept A -> Dept B (HARUS BISA)", True),
-        ('h6', 'h2', "Dept C -> Dept A (HARUS DIBLOKIR)", False)
-    ]
+    # Loop Cek Koneksi
+    for src in hosts:
+        for dst in hosts:
+            if src == dst: 
+                continue 
 
-    for src_name, dst_name, description, should_pass in test_cases:
-        src_host = net.get(src_name)
-        dst_host = net.get(dst_name)
-
-        print(f"\n🧪 {description}")
-        print(f"   {src_name} ({src_host.IP()}) --> {dst_name} ({dst_host.IP()})")
-
-        # Lakukan ping
-        result = src_host.cmd(f'ping -c 2 -W 2 {dst_host.IP()}')
-
-        success = '2 received' in result
-        if success == should_pass:
-            status = "✅ BENAR"
-            if success:
-                print(f"   {status} - Paket diteruskan")
+            # Perintah Ping (timeout 0.5 detik)
+            # -c 1 : kirim 1 paket
+            # -W 1 : tunggu max 1 detik
+            result = src.cmd('ping -c 1 -W 1 %s' % dst.IP())
+            
+            status = ""
+            if '1 received' in result:
+                status = "✅ SUKSES"
             else:
-                print(f"   {status} - Paket diblokir firewall")
-        else:
-            status = "❌ SALAH"
-            if success:
-                print(f"   {status} - Seharusnya diblokir tapi paket lolos!")
-            else:
-                print(f"   {status} - Seharusnya lolos tapi paket diblokir!")
+                status = "❌ DIBLOKIR"
 
-        time.sleep(1)
+            # Cetak Hasil dengan Animasi
+            print(f"[ {src.name} ] --(ping)--> [ {dst.name} ] : {status}")
+            
+            # Jeda 0.2 detik biar enak dilihat
+            time.sleep(0.2)
 
-    print("\n" + "="*50)
-    print("   SIMULASI SELESAI. MASUK KE MODE MANUAL.")
-    print("   Ketik 'exit' untuk keluar dari Mininet")
-    print("="*50)
+        print("-" * 50)
 
+    print("\n*** Simulasi Selesai. Masuk ke mode Manual CLI.")
+    
     # --- 3. MASUK MODE CLI (Agar tidak langsung keluar) ---
     CLI(net)
-
+    
     print("*** Mematikan Jaringan...")
     net.stop()
 
