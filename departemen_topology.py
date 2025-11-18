@@ -83,7 +83,8 @@ def create_topology():
     def test_connection_with_arrow(src_host, dst_host, src_name, dst_name):
         """Test connection and display result with arrow"""
         result = net.ping([src_host, dst_host])
-        success_rate = 100 - float(result.split('%')[0])
+        # net.ping returns a float (0.0 to 100.0), representing loss percentage
+        success_rate = 100 - result
 
         if success_rate == 0:
             arrow = "❌ X"
