@@ -53,7 +53,6 @@ class DeptFirewall(app_manager.RyuApp):
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
         
-        # Ignore LLDP packet
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             return
 
@@ -62,36 +61,23 @@ class DeptFirewall(app_manager.RyuApp):
         dpid = datapath.id
 
         self.mac_to_port.setdefault(dpid, {})
-        
-        # Learn MAC address
         self.mac_to_port[dpid][src] = in_port
 
         # --- LOGIKA FIREWALL (Aturan Dept) ---
-        # Cek apakah paket adalah IPv4
         ip_pkt = pkt.get_protocol(ipv4.ipv4)
         
         if ip_pkt:
             src_ip = ip_pkt.src
             dst_ip = ip_pkt.dst
 
-            # Definisi Subnet
-            # Dept A: 10.0.1.x
-            # Dept B: 10.0.2.x
-            # Dept C: 10.0.3.x
-
-            # Rule 1: Dept A dan Dept C TIDAK BISA connect (Dua arah)
-            # Jika Src A ke Dst C -> DROP
+            # Rule: Dept A <-> Dept C = BLOCK
             if src_ip.startswith("10.0.1") and dst_ip.startswith("10.0.3"):
-                self.logger.info(f"BLOCKED: Traffic from Dept A ({src_ip}) to Dept C ({dst_ip})")
-                return # Drop packet (stop processing)
+                self.logger.info(f"BLOCKED: {src_ip} -> {dst_ip}")
+                return 
             
-            # Jika Src C ke Dst A -> DROP
             if src_ip.startswith("10.0.3") and dst_ip.startswith("10.0.1"):
-                self.logger.info(f"BLOCKED: Traffic from Dept C ({src_ip}) to Dept A ({dst_ip})")
-                return # Drop packet (stop processing)
-
-            # Dept A -> Dept B (Allowed secara default)
-            # Dept B -> Dept C (Allowed secara default)
+                self.logger.info(f"BLOCKED: {src_ip} -> {dst_ip}")
+                return 
             
         # --- AKHIR LOGIKA FIREWALL ---
 
@@ -103,14 +89,11 @@ class DeptFirewall(app_manager.RyuApp):
 
         actions = [parser.OFPActionOutput(out_port)]
 
-        # Install flow untuk menghindari packet_in berulang jika koneksi diizinkan
-        if out_port != ofproto.OFPP_FLOOD:
-            match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
-            if msg.buffer_id != ofproto.OFP_NO_BUFFER:
-                self.add_flow(datapath, 1, match, actions, msg.buffer_id)
-                return
-            else:
-                self.add_flow(datapath, 1, match, actions)
+        # ==============================================================
+        # PERUBAHAN PENTING:
+        # Bagian 'add_flow' (if out_port != FLOOD) SUDAH DIHAPUS DISINI.
+        # Controller akan menangani setiap paket satu per satu.
+        # ==============================================================
         
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
