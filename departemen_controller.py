@@ -70,12 +70,13 @@ class DeptFirewall(app_manager.RyuApp):
             dst_ip = ip_pkt.dst
 
             # Dept A (10.0.1.x) <-> Dept C (10.0.3.x) = BLOCK
+            # Ditambahkan teks keterangan Dept agar log lebih jelas
             if src_ip.startswith("10.0.1") and dst_ip.startswith("10.0.3"):
-                self.logger.info(f"BLOCKED: {src_ip} -> {dst_ip}")
+                self.logger.info(f"BLOCKED: Traffic from Dept A ({src_ip}) -> to Dept C ({dst_ip})")
                 return 
             
             if src_ip.startswith("10.0.3") and dst_ip.startswith("10.0.1"):
-                self.logger.info(f"BLOCKED: {src_ip} -> {dst_ip}")
+                self.logger.info(f"BLOCKED: Traffic from Dept C ({src_ip}) -> to Dept A ({dst_ip})")
                 return 
         # --- END FIREWALL ---
 
